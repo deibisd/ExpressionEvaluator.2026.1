@@ -1,109 +1,161 @@
-﻿namespace ExpressionEvaluator.Core;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
 
-public class Evaluator
+namespace ExpressionEvaluator.Core
 {
-    public static double Evaluate(string infix)
+    public class Evaluator
     {
-        var postfix = InfixToPostfix(infix);
-        return EvaluatePostfix(postfix);
-    }
-
-    private static string InfixToPostfix(string infix)
-    {
-        var postFix = string.Empty;
-        var stack = new Stack<char>();
-        foreach (var item in infix)
+        public static double Evaluate(string infix)
         {
-            if (IsOperator(item))
+            
+            System.Threading.Thread.CurrentThread.CurrentCulture =
+                CultureInfo.InvariantCulture;
+
+            var postfix = InfixToPostfix(infix);
+            return EvaluatePostfix(postfix);
+        }
+
+        private static List<string> InfixToPostfix(string infix)
+        {
+            List<string> output = new List<string>();
+            Stack<char> stack = new Stack<char>();
+
+            string numero = "";
+
+            foreach (char item in infix)
             {
-                if (stack.Count == 0)
+                if (char.IsDigit(item) || item == '.')
                 {
-                    stack.Push(item);
+                    if (item == '.' && numero.Contains("."))
+                        throw new Exception("Número decimal inválido");
+
+                    numero += item;
                 }
                 else
                 {
-                    if (item == ')')
+                    if (numero != "")
                     {
-                        do
-                        {
-                            postFix += stack.Pop();
-                        } while (stack.Peek() != '(');
-                        stack.Pop();
+                        if (numero == ".")
+                            throw new Exception("Número decimal inválido");
+
+                        output.Add(numero);
+                        numero = "";
                     }
-                    else
+
+                    if (IsOperator(item))
                     {
-                        if (PriorityInfix(item) > PriorityStack(stack.Peek()))
+                        if (item == '(')
                         {
                             stack.Push(item);
                         }
+                        else if (item == ')')
+                        {
+                            while (stack.Count > 0 && stack.Peek() != '(')
+                            {
+                                output.Add(stack.Pop().ToString());
+                            }
+                            if (stack.Count > 0) stack.Pop();
+                        }
                         else
                         {
-                            postFix += stack.Pop();
+                           
+                            while (stack.Count > 0 &&
+                                   stack.Peek() != '(' &&
+                                   PriorityStack(stack.Peek()) >= PriorityInfix(item))
+                            {
+                                output.Add(stack.Pop().ToString());
+                            }
+
                             stack.Push(item);
                         }
                     }
                 }
             }
-            else
+
+            if (numero != "")
             {
-                postFix += item;
+                if (numero == ".")
+                    throw new Exception("Número decimal inválido");
+
+                output.Add(numero);
+            }
+
+            while (stack.Count > 0)
+            {
+                output.Add(stack.Pop().ToString());
+            }
+
+            return output;
+        }
+
+        private static int PriorityStack(char item)
+        {
+            switch (item)
+            {
+                case '^': return 3;
+                case '*': return 2;
+                case '/': return 2;
+                case '+': return 1;
+                case '-': return 1;
+                case '(': return 0;
+                default: throw new Exception("Sintax error.");
             }
         }
-        while (stack.Count > 0)
+
+        private static int PriorityInfix(char item)
         {
-            postFix += stack.Pop();
-        }
-        return postFix;
-    }
-
-    private static int PriorityStack(char item) => item switch
-    {
-        '^' => 3,
-        '*' => 2,
-        '/' => 2,
-        '+' => 1,
-        '-' => 1,
-        '(' => 0,
-        _ => throw new Exception("Sintax error."),
-    };
-
-    private static int PriorityInfix(char item) => item switch
-    {
-        '^' => 4,
-        '*' => 2,
-        '/' => 2,
-        '+' => 1,
-        '-' => 1,
-        '(' => 5,
-        _ => throw new Exception("Sintax error."),
-    };
-
-    private static double EvaluatePostfix(string postfix)
-    {
-        var stack = new Stack<double>();
-        foreach (char item in postfix)
-        {
-            if (IsOperator(item))
+            switch (item)
             {
-                var b = stack.Pop();
-                var a = stack.Pop();
-                stack.Push(item switch
+                case '^': return 4;
+                case '*': return 2;
+                case '/': return 2;
+                case '+': return 1;
+                case '-': return 1;
+                case '(': return 5;
+                default: throw new Exception("Sintax error.");
+            }
+        }
+
+        private static double EvaluatePostfix(List<string> postfix)
+        {
+            Stack<double> stack = new Stack<double>();
+
+            foreach (string item in postfix)
+            {
+                double numero;
+
+               
+                if (double.TryParse(item, NumberStyles.Any, CultureInfo.InvariantCulture, out numero))
                 {
-                    '+' => a + b,
-                    '-' => a - b,
-                    '*' => a * b,
-                    '/' => a / b,
-                    '^' => Math.Pow(a, b),
-                    _ => throw new Exception("Sintax error."),
-                });
-            }
-            else
-            {
-                stack.Push(double.Parse(item.ToString()));
-            }
-        }
-        return stack.Pop();
-    }
+                    stack.Push(numero);
+                }
+                else
+                {
+                    if (item == ".")
+                        throw new Exception("Número decimal inválido");
 
-    private static bool IsOperator(char item) => "+-*/^()".Contains(item);
+                    double b = stack.Pop();
+                    double a = stack.Pop();
+
+                    switch (item[0])
+                    {
+                        case '+': stack.Push(a + b); break;
+                        case '-': stack.Push(a - b); break;
+                        case '*': stack.Push(a * b); break;
+                        case '/': stack.Push(a / b); break;
+                        case '^': stack.Push(Math.Pow(a, b)); break;
+                        default: throw new Exception("Sintax error.");
+                    }
+                }
+            }
+
+            return stack.Pop();
+        }
+
+        private static bool IsOperator(char item)
+        {
+            return "+-*/^()".Contains(item);
+        }
+    }
 }
