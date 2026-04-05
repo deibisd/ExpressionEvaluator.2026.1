@@ -8,7 +8,6 @@ namespace ExpressionEvaluator.Core
     {
         public static double Evaluate(string infix)
         {
-            
             System.Threading.Thread.CurrentThread.CurrentCulture =
                 CultureInfo.InvariantCulture;
 
@@ -59,7 +58,6 @@ namespace ExpressionEvaluator.Core
                         }
                         else
                         {
-                           
                             while (stack.Count > 0 &&
                                    stack.Peek() != '(' &&
                                    PriorityStack(stack.Peek()) >= PriorityInfix(item))
@@ -125,15 +123,15 @@ namespace ExpressionEvaluator.Core
             {
                 double numero;
 
-               
                 if (double.TryParse(item, NumberStyles.Any, CultureInfo.InvariantCulture, out numero))
                 {
                     stack.Push(numero);
                 }
                 else
                 {
-                    if (item == ".")
-                        throw new Exception("Número decimal inválido");
+                    // 🔥 VALIDACIÓN IMPORTANTE (no rompe tu lógica)
+                    if (stack.Count < 2)
+                        throw new Exception("Sintax error.");
 
                     double b = stack.Pop();
                     double a = stack.Pop();
